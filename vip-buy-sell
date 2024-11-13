@@ -1,0 +1,120 @@
+Al/Sat Sinyalleri Üreten Trading Bot
+1. Başlangıç ve Kullanıcı Girdileri
+Botun farklı göstergeler için parametrelerini tanımlamak için input komutları kullanılır.
+
+pinescript
+Kodu kopyala
+//@version=5
+indicator("Advanced Trading Bot - Al/Sat Sinyalleri", overlay=true)
+
+// Kullanıcı girişleri
+fibRetracement = input(false, "Fibonacci Geri Çekilme On/Off")
+macdSignal = input(true, "MACD Sinyal On/Off")
+rsiSignal = input(true, "RSI Sinyal On/Off")
+vortexSignal = input(true, "Vortex Sinyal On/Off")
+emaSignal = input(true, "EMA Sinyal On/Off")
+maSignal = input(true, "MA Sinyal On/Off")
+bollingerBands = input(true, "Bollinger Bandları On/Off")
+
+// Temel ayar parametreleri
+fastLength = input.int(12, title="MACD Hızlı EMA")
+slowLength = input.int(26, title="MACD Yavaş EMA")
+signalSmoothing = input.int(9, title="MACD Sinyal Hattı")
+rsiLength = input.int(14, title="RSI Periyodu")
+vortexLength = input.int(14, title="Vortex Periyodu")
+emaShort = input.int(9, title="Kısa EMA")
+emaLong = input.int(21, title="Uzun EMA")
+maLength = input.int(50, title="MA Periyodu")
+bollingerLength = input.int(20, title="Bollinger Periyodu")
+bollingerStdDev = input.float(2, title="Bollinger Standart Sapma")
+2. Göstergeler ve Hesaplamalar
+Her bir gösterge için ayrı ayrı hesaplamalar yapılır. Alım/Satım sinyalleri, göstergelerin genel eğilimi göz önünde bulundurularak oluşturulacaktır.
+
+pinescript
+Kodu kopyala
+// MACD hesaplamaları
+[macdLine, signalLine, _] = ta.macd(close, fastLength, slowLength, signalSmoothing)
+macdBuySignal = ta.crossover(macdLine, signalLine)  // Alım Sinyali
+macdSellSignal = ta.crossunder(macdLine, signalLine) // Satım Sinyali
+
+// RSI hesaplamaları
+rsi = ta.rsi(close, rsiLength)
+rsiOverbought = 70
+rsiOversold = 30
+rsiBuySignal = rsi < rsiOversold
+rsiSellSignal = rsi > rsiOverbought
+
+// Vortex hesaplamaları
+vortexPlus = ta.vortex(vortexLength)[0]
+vortexMinus = ta.vortex(vortexLength)[1]
+vortexBuySignal = ta.crossover(vortexPlus, vortexMinus)
+vortexSellSignal = ta.crossunder(vortexPlus, vortexMinus)
+
+// EMA ve MA hesaplamaları
+emaShortVal = ta.ema(close, emaShort)
+emaLongVal = ta.ema(close, emaLong)
+maVal = ta.sma(close, maLength)
+emaBuySignal = ta.crossover(emaShortVal, emaLongVal)
+emaSellSignal = ta.crossunder(emaShortVal, emaLongVal)
+
+// Bollinger Bandı hesaplamaları
+basis = ta.sma(close, bollingerLength)
+dev = bollingerStdDev * ta.stdev(close, bollingerLength)
+upperBand = basis + dev
+lowerBand = basis - dev
+bollingerBuySignal = ta.cross(close, lowerBand)
+bollingerSellSignal = ta.cross(close, upperBand)
+
+// Fibonacci seviyeleri (anahtar geri çekilme seviyeleri olarak çizilir)
+fibonacciRetracement(level) =>
+    float pivotHigh = ta.highest(high, 20)
+    float pivotLow = ta.lowest(low, 20)
+    levelVal = pivotLow + (pivotHigh - pivotLow) * level
+    levelVal
+
+if fibRetracement
+    plot(fibonacciRetracement(0.236), color=color.new(color.blue, 0), title="Fib 23.6%")
+    plot(fibonacciRetracement(0.382), color=color.new(color.green, 0), title="Fib 38.2%")
+    plot(fibonacciRetracement(0.5), color=color.new(color.red, 0), title="Fib 50%")
+    plot(fibonacciRetracement(0.618), color=color.new(color.orange, 0), title="Fib 61.8%")
+    plot(fibonacciRetracement(0.786), color=color.new(color.purple, 0), title="Fib 78.6%")
+3. Al/Sat Sinyali Oluşturma
+Birden fazla göstergenin birleşik sinyalleri kullanılarak al/sat sinyalleri oluşturulur. Göstergelerin her birine göre alım ve satım sinyalleri topluca değerlendirilir.
+
+pinescript
+Kodu kopyala
+// Birleşik Al/Sat Sinyalleri
+buySignal = (macdSignal and macdBuySignal) or (rsiSignal and rsiBuySignal) or (vortexSignal and vortexBuySignal) or (emaSignal and emaBuySignal) or (bollingerBands and bollingerBuySignal)
+sellSignal = (macdSignal and macdSellSignal) or (rsiSignal and rsiSellSignal) or (vortexSignal and vortexSellSignal) or (emaSignal and emaSellSignal) or (bollingerBands and bollingerSellSignal)
+
+// Al/Sat Sinyallerini Görüntüleme
+plotshape(series=buySignal, title="Buy Signal", location=location.belowbar, color=color.green, style=shape.labelup, text="BUY")
+plotshape(series=sellSignal, title="Sell Signal", location=location.abovebar, color=color.red, style=shape.labeldown, text="SELL")
+4. Gösterge Çizimleri
+Grafikte göstergelerin görselleştirilmesi için çizimler yapılır. Bu çizimler, al/sat sinyallerinin daha iyi yorumlanmasını sağlar.
+
+pinescript
+Kodu kopyala
+// MACD Çizimi
+plot(macdSignal ? macdLine : na, color=color.blue, title="MACD Line")
+plot(macdSignal ? signalLine : na, color=color.red, title="Signal Line")
+hline(0, "MACD Zero Line", color=color.gray)
+
+// RSI Çizimi
+plot(rsiSignal ? rsi : na, color=color.purple, title="RSI")
+hline(rsiOverbought, "Overbought", color=color.red)
+hline(rsiOversold, "Oversold", color=color.green)
+
+// Vortex Çizimi
+plot(vortexSignal ? vortexPlus : na, color=color.blue, title="Vortex+")
+plot(vortexSignal ? vortexMinus : na, color=color.red, title="Vortex-")
+
+// EMA ve MA Çizimleri
+plot(emaSignal ? emaShortVal : na, color=color.green, title="EMA Short")
+plot(emaSignal ? emaLongVal : na, color=color.red, title="EMA Long")
+plot(maSignal ? maVal : na, color=color.blue, title="Moving Average")
+
+// Bollinger Bandları Çizimi
+plot(bollingerBands ? upperBand : na, color=color.gray, title="Upper Band")
+plot(bollingerBands ? lowerBand : na, color=color.gray, title="Lower Band")
+fill(bollingerBands ? upperBand : na, bollingerBands ? lowerBand : na, color=color.rgb(211, 211, 211, 90), title="Bollinger Band Filler")
